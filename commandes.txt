@@ -1,0 +1,11 @@
+
+C:\SDL\todolist
+
+SET PATH=C:\Program Files\winlibs-x86_64-posix-seh-gcc-13.2.0-llvm-17.0.6-mingw-w64ucrt-11.0.1-r4\mingw64\bin;%PATH%
+
+
+gcc -std=c17 main.c -IC:\SDL\todolist\SDL2\SDL2-2.28.5\x86_64-w64-mingw32\include -LC:\SDL\todolist\SDL2\SDL2-2.28.5\x86_64-w64-mingw32\lib -Wall -lmingw32 -lSDL2main -lSDL2 -o main -lSDL2_ttf
+
+
+
+gcc -std=c17 main.c -IC:\SDL\todolist\SDL2\x86_64-w64-mingw32\include -LC:\SDL\todolist\SDL2\x86_64-w64-mingw32\lib -Wall -lmingw32 -lSDL2main -lSDL2 -o main -lSDL2_ttf
