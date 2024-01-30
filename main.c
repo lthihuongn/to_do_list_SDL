@@ -357,7 +357,7 @@ int main(int argc, char *argv[]) {
 
         // Dessiner le texte "Right-click to delete" à côté du bouton "Add"
         SDL_Color deleteTextColor = {255, 255, 255, 255};
-        SDL_Surface *textSurfaceDelete = TTF_RenderText_Solid(font, "Right click to delete", deleteTextColor);
+        SDL_Surface *textSurfaceDelete = TTF_RenderText_Solid(font, "Right click to delete - Enter to save the task", deleteTextColor);
         SDL_Texture *textDelete = SDL_CreateTextureFromSurface(rend, textSurfaceDelete);
         SDL_FreeSurface(textSurfaceDelete);
 
