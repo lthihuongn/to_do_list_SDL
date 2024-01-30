@@ -78,7 +78,8 @@ void loadTasksFromFile(TextLine *textLines, int *numLines) {
 }
 
 // Fonction pour afficher un texte avec fond coloré
-void renderText(SDL_Renderer *rend, TTF_Font *font, const char *text, SDL_Rect rect, SDL_Color textColor, SDL_Color backgroundColor) {
+void renderText(SDL_Renderer *rend, TTF_Font *font, const char *text, SDL_Rect rect, SDL_Color textColor, SDL_Color backgroundColor, bool isEditing, bool isDragging) {
+    // Dessiner le rectangle de fond
     SDL_SetRenderDrawColor(rend, backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
     SDL_RenderFillRect(rend, &rect);
 
@@ -113,10 +114,8 @@ void renderText(SDL_Renderer *rend, TTF_Font *font, const char *text, SDL_Rect r
             totalHeight += text_height;
         }
     }
-
-    // Ajuster la hauteur de la zone de texte
-    rect.h = totalHeight + 10;
 }
+
 
 
 
@@ -225,6 +224,7 @@ int main(int argc, char *argv[]) {
         printf("Error opening tasks.txt for reading.\n");
     }
 
+    bool somethingChanged = false;
 
     while (running) {
         while (SDL_PollEvent(&event)) {
@@ -238,7 +238,8 @@ int main(int argc, char *argv[]) {
                 if (event.button.button == SDL_BUTTON_LEFT && isPointInRect(&(SDL_Point){mouseX, mouseY}, &(SDL_Rect){WIDTH - BUTTON_WIDTH, HEIGHT - BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_HEIGHT})) {
                     // Ajouter une nouvelle zone de texte dans la colonne "To Do"
                     if (numLines < 100) {
-                        textLines[numLines].rect = (SDL_Rect){10, 40 + numLines * (MIN_TEXTBOX_HEIGHT + 5), TEXTBOX_WIDTH, MIN_TEXTBOX_HEIGHT};
+                        // Utilisez une valeur plus grande pour la hauteur initiale (par exemple, 40)
+                        textLines[numLines].rect = (SDL_Rect){10, 40 + numLines * (40 + 5), TEXTBOX_WIDTH, 40};
                         textLines[numLines].isEditing = true;
                         textLines[numLines].isDragging = false;
                         textLines[numLines].text[0] = '\0';
@@ -268,6 +269,11 @@ int main(int argc, char *argv[]) {
                             }
                             textLines[i].isEditing = true;
                             textLines[i].isDragging = true;
+
+                            // Stocker la position y initiale
+                            int textWidth, textHeight;
+                            TTF_SizeText(font, textLines[i].text, &textWidth, &textHeight);
+                            textLines[i].rect.y = textLines[i].rect.y + (textLines[i].rect.h - textHeight) / 2;
                         } else {
                             textLines[i].isEditing = false;
                             textLines[i].isDragging = false;
@@ -292,9 +298,28 @@ int main(int argc, char *argv[]) {
                 // Gérer la saisie de texte dans la zone de texte en cours d'édition
                 for (int i = 0; i < numLines; ++i) {
                     if (textLines[i].isEditing) {
-                        if (strlen(textLines[i].inputText) + strlen(event.text.text) < MAX_TEXT_LENGTH - 1) {
-                            strcat(textLines[i].inputText, event.text.text);
+                        // Vérifier si la zone de texte est en cours d'édition pour la première fois
+                        if (textLines[i].inputText[0] == '\0') {
+                            // Si oui, centrer le texte verticalement dans la zone de texte
+                            int textWidth, textHeight;
+                            TTF_SizeText(font, textLines[i].inputText, &textWidth, &textHeight);
+
+                            textLines[i].rect.y = textLines[i].rect.y + (textLines[i].rect.h - textHeight) / 2;
                         }
+
+                        // Concaténer le texte de saisie
+                        strcat(textLines[i].inputText, event.text.text);
+
+                        // Ajuster la position verticale pour centrer le texte
+                        int textWidth, textHeight;
+                        TTF_SizeText(font, textLines[i].inputText, &textWidth, &textHeight);
+
+                        // Vérifier si le texte dépasse la largeur de la zone de texte
+                        if (textWidth > textLines[i].rect.w - 20) {
+                            // Si le texte dépasse, empêcher le texte de dépasser la largeur de la zone de texte
+                            textLines[i].inputText[strlen(textLines[i].inputText) - 1] = '\0';
+                        }
+
                         break;
                     }
                 }
@@ -305,14 +330,17 @@ int main(int argc, char *argv[]) {
                         if (textLines[i].isEditing) {
                             textLines[i].isEditing = false;
                             textLines[i].isDragging = false;
-                            strncpy(textLines[i].text, textLines[i].inputText, MAX_TEXT_LENGTH - 1);
-                            textLines[i].text[MAX_TEXT_LENGTH - 1] = '\0';
+                            strncpy(textLines[i].text, textLines[i].inputText, 12);  // Limiter le texte à 12 caractères //mais permet à la mémoire de marcher ?
+                            textLines[i].text[12] = '\0';
                             textLines[i].inputText[0] = '\0';
 
                             // Ajuster la hauteur de la zone de texte en fonction du texte entré
                             int textWidth, textHeight;
                             TTF_SizeText(font, textLines[i].text, &textWidth, &textHeight);
                             textLines[i].rect.h = textHeight + 10;
+
+                            // Centrer le texte verticalement
+                            textLines[i].rect.y = textLines[i].rect.y + (textLines[i].rect.h - MIN_TEXTBOX_HEIGHT) / 2;
                         }
                     }
                 } else if (event.key.keysym.sym == SDLK_BACKSPACE && numLines > 0) {
@@ -356,7 +384,7 @@ int main(int argc, char *argv[]) {
             SDL_Texture *textTexture = SDL_CreateTextureFromSurface(rend, textSurface);
             SDL_FreeSurface(textSurface);
 
-            SDL_Rect renderQuad = {columns[i].rect.x + (columns[i].rect.w - textSurface->w) / 2, 0, textSurface->w, textSurface->h};
+            SDL_Rect renderQuad = {columns[i].rect.x + WIDTH / 6 - textSurface->w / 2, 0, textSurface->w, textSurface->h};
             SDL_RenderCopy(rend, textTexture, NULL, &renderQuad);
             SDL_DestroyTexture(textTexture);
         }
@@ -366,16 +394,16 @@ int main(int argc, char *argv[]) {
         int buttonWidth = BUTTON_WIDTH;
         int buttonHeight = BUTTON_HEIGHT;
 
-// Position du bouton en bas à droite
+        // Position du bouton en bas à droite
         int buttonX = WIDTH - buttonWidth;
         int buttonY = HEIGHT - buttonHeight;
 
-// Dessine le bouton "Add"
+        // Dessine le bouton "Add"
         SDL_SetRenderDrawColor(rend, 0, 0, 0, 255);
         SDL_Rect rect = {buttonX, buttonY, buttonWidth, buttonHeight};
         SDL_RenderFillRect(rend, &rect);
 
-// Dessine le texte au centre du bouton "Add"
+        // Dessine le texte au centre du bouton "Add"
         SDL_Color textColor = {255, 255, 255, 255}; // Couleur du texte (blanc)
         SDL_Surface *textSurfaceButton = TTF_RenderText_Solid(font, "Add", textColor);
         SDL_Texture *textButton = SDL_CreateTextureFromSurface(rend, textSurfaceButton);
@@ -386,7 +414,7 @@ int main(int argc, char *argv[]) {
         SDL_Rect textRect = {buttonX + (buttonWidth - textWidth) / 2, buttonY + (buttonHeight - textHeight) / 2, textWidth, textHeight};
         SDL_RenderCopy(rend, textButton, NULL, &textRect);
 
-// Libère la surface et la texture du texte
+        // Libère la surface et la texture du texte
         SDL_FreeSurface(textSurfaceButton);
         SDL_DestroyTexture(textButton);
 
@@ -402,27 +430,34 @@ int main(int argc, char *argv[]) {
 
         // Dessiner les zones de texte
         for (int i = 0; i < numLines; ++i) {
-            SDL_Color color = {0, 0, 0};
+            SDL_Color color = {0, 0, 0}; // Couleur du texte (noir)
             SDL_Color backgroundColor = {255, 255, 255};
-            renderText(rend, font, textLines[i].text, textLines[i].rect, color, backgroundColor);
+            renderText(rend, font, textLines[i].text, textLines[i].rect, color, backgroundColor, textLines[i].isEditing, textLines[i].isDragging);
+
+
 
             if (textLines[i].isEditing) {
                 SDL_Rect inputRect = {textLines[i].rect.x, textLines[i].rect.y, textLines[i].rect.w, textLines[i].rect.h};
-                renderText(rend, font, textLines[i].inputText, inputRect, color, backgroundColor);
+                renderText(rend, font, textLines[i].inputText, inputRect, color, backgroundColor, textLines[i].isEditing, textLines[i].isDragging);
+
             }
         }
 
-        // Mettre à jour l'affichage
+// Mettre à jour l'affichage
         SDL_RenderPresent(rend);
 
         // Ajouter un délai pour réduire l'utilisation du processeur
         SDL_Delay(16); // Pause de 16 millisecondes
 
-        // Sauvegarder les tâches avant de quitter
 
-
+        // Si quelque chose a changé, mettez à jour l'affichage
+        if (somethingChanged) {
+            SDL_RenderPresent(rend);
+            somethingChanged = false;  // Réinitialisez l'indicateur
+        }
 
     }
+    // Sauvegarder les tâches avant de quitter
     saveTasksToFile(textLines, numLines);
 
     // Enregistrez les tâches dans le fichier
