@@ -85,19 +85,39 @@ void renderText(SDL_Renderer *rend, TTF_Font *font, const char *text, SDL_Rect r
     SDL_SetRenderDrawColor(rend, textColor.r, textColor.g, textColor.b, textColor.a);
     SDL_RenderDrawRect(rend, &rect);
 
-    // Charger le texte dans une surface
-    SDL_Surface *textSurface = TTF_RenderText_Blended_Wrapped(font, text, textColor, rect.w - 20);
-    SDL_Texture *textTexture = SDL_CreateTextureFromSurface(rend, textSurface);
-    SDL_FreeSurface(textSurface);
+    // Copier la chaîne de texte dans une nouvelle mémoire tampon pour éviter les problèmes avec strtok
+    char textBuffer[MAX_TEXT_LENGTH];
+    strncpy(textBuffer, text, MAX_TEXT_LENGTH);
+    textBuffer[MAX_TEXT_LENGTH - 1] = '\0';
 
-    // Centrer le texte dans la zone de texte
-    int textWidth, textHeight;
-    SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
-    SDL_Rect renderQuad = {rect.x + 10, rect.y + (rect.h - textHeight) / 2, rect.w - 20, textHeight};
-    SDL_RenderCopy(rend, textTexture, NULL, &renderQuad);
+    char *token = strtok(textBuffer, "\n");
+    int totalHeight = 0;
 
-    SDL_DestroyTexture(textTexture);
+    while (token != NULL) {
+        SDL_Surface *textSurface = TTF_RenderText_Blended_Wrapped(font, token, textColor, rect.w - 20);
+        SDL_Texture *textTexture = SDL_CreateTextureFromSurface(rend, textSurface);
+        SDL_FreeSurface(textSurface);
+
+        int text_width, text_height;
+        SDL_QueryTexture(textTexture, NULL, NULL, &text_width, &text_height);
+
+        SDL_Rect renderQuad = {rect.x + 10, rect.y + 5 + totalHeight, text_width, text_height};
+        SDL_RenderCopy(rend, textTexture, NULL, &renderQuad);
+
+        SDL_DestroyTexture(textTexture);
+
+        // Passer au jeton suivant
+        token = strtok(NULL, "\n");
+        if (token != NULL) {
+            // Ajouter la hauteur de la ligne à la hauteur totale
+            totalHeight += text_height;
+        }
+    }
+
+    // Ajuster la hauteur de la zone de texte
+    rect.h = totalHeight + 10;
 }
+
 
 
 // Fonction pour obtenir la hauteur d'une ligne de texte
@@ -342,17 +362,32 @@ int main(int argc, char *argv[]) {
         }
 
         // Dessiner le bouton "Add"
-        SDL_Color textColor = {255, 255, 255, 0};
-        SDL_Rect buttonRect = {WIDTH - BUTTON_WIDTH, HEIGHT - BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_HEIGHT};
-        SDL_SetRenderDrawColor(rend, 0, 0, 0, 255);
-        SDL_RenderFillRect(rend, &buttonRect);
+        // Dimensions du bouton "Add"
+        int buttonWidth = BUTTON_WIDTH;
+        int buttonHeight = BUTTON_HEIGHT;
 
+// Position du bouton en bas à droite
+        int buttonX = WIDTH - buttonWidth;
+        int buttonY = HEIGHT - buttonHeight;
+
+// Dessine le bouton "Add"
+        SDL_SetRenderDrawColor(rend, 0, 0, 0, 255);
+        SDL_Rect rect = {buttonX, buttonY, buttonWidth, buttonHeight};
+        SDL_RenderFillRect(rend, &rect);
+
+// Dessine le texte au centre du bouton "Add"
+        SDL_Color textColor = {255, 255, 255, 255}; // Couleur du texte (blanc)
         SDL_Surface *textSurfaceButton = TTF_RenderText_Solid(font, "Add", textColor);
         SDL_Texture *textButton = SDL_CreateTextureFromSurface(rend, textSurfaceButton);
-        SDL_FreeSurface(textSurfaceButton);
 
-        SDL_Rect renderQuadButton = {WIDTH - BUTTON_WIDTH, HEIGHT - BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_HEIGHT};
-        SDL_RenderCopy(rend, textButton, NULL, &renderQuadButton);
+        int textWidth, textHeight;
+        SDL_QueryTexture(textButton, NULL, NULL, &textWidth, &textHeight);
+
+        SDL_Rect textRect = {buttonX + (buttonWidth - textWidth) / 2, buttonY + (buttonHeight - textHeight) / 2, textWidth, textHeight};
+        SDL_RenderCopy(rend, textButton, NULL, &textRect);
+
+// Libère la surface et la texture du texte
+        SDL_FreeSurface(textSurfaceButton);
         SDL_DestroyTexture(textButton);
 
         // Dessiner le texte "Right-click to delete" à côté du bouton "Add"
